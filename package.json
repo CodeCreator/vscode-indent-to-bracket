@@ -3,7 +3,7 @@
     "displayName": "Indent To Bracket",
     "description": "Indents new lines to the last open bracket / parenthesis",
     "version": "1.0.1",
-    "publisher": "bribri",
+    "publisher": "LAK132",
     "engines": {
         "vscode": "^1.20.0"
     },
@@ -36,8 +36,8 @@
     ],
     "repository": {
         "type": "git",
-        "url": "https://github.com/briankendall/vscode-indent-to-bracket.git"
+        "url": "https://github.com/LAK132/vscode-indent-to-bracket.git"
     },
-    "homepage": "https://github.com/briankendall/vscode-indent-to-bracket",
+    "homepage": "https://github.com/LAK132/vscode-indent-to-bracket",
     "license": "Unlicense"
 }
