@@ -76,10 +76,10 @@ function isClosingBracket(bracket: string) {
     return bracket === ')' || bracket === ']' || bracket === '}' || bracket == '>';
 }
 
-// function doesLineEndWithOpenBracket(line: string) {
-//     var regex = /(\(|\[|{)\s*$/g;
-//     return line.search(regex) !== -1;
-// }
+function doesLineEndWithOpenBracket(line: string) {
+    var regex = /(\(|\[|{)\s*$/g;
+    return line.search(regex) !== -1;
+}
 
 function allBracketsInString(s: string) {
     var regex = /(\(|\)|\[|\]|{|})/g;
@@ -146,6 +146,16 @@ function findIndentationPositionOfPreviousOpenBracket(editor: vscode.TextEditor,
     // Don't want to consider the entire line if the insertion point isn't at the end:
     var startingLine = document.lineAt(startingLineNumber).text.substring(0, position.character);
     var tabSize = editor.options.tabSize as number;
+
+    var config = vscode.workspace.getConfiguration(
+        'indent-to-bracket');
+    if (config.get('useDefaultIndentationAfterEmptyBracket'))
+    {
+      if (doesLineEndWithOpenBracket(startingLine)) {
+        // We want to use the editor's default indentation in this case
+        return null;
+      }
+    }
 
     var tallies = new BracketCounter();
 

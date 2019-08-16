@@ -14,7 +14,19 @@
         "*"
     ],
     "main": "./out/extension",
-    "contributes": {},
+    "contributes": {
+        "configuration": {
+            "title": "Indent to bracket",
+            "properties": {
+                "indent-to-bracket.useDefaultIndentationAfterEmptyBracket":{
+                    "type":"boolean",
+                    "scope":"resource",
+                    "default": false,
+                    "description": "If false, then any new lines directly after an empty bracket will be indented one level beyond the previous open bracket.\nIf true, the default vscode behaviour will be used."
+                }
+            }
+        }
+    },
     "scripts": {
         "vscode:prepublish": "npm run compile",
         "compile": "tsc -p ./",
