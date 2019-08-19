@@ -1,6 +1,9 @@
 'use strict';
 import * as vscode from 'vscode';
 
+var ourConfig: vscode.WorkspaceConfiguration;
+var useDefaultNewlineIndent: boolean;
+
 export function activate(context: vscode.ExtensionContext) {
     // Use the console to output diagnostic information (console.log) and errors (console.error)
     // This line of code will only be executed once when your extension is activated
@@ -15,6 +18,18 @@ export function activate(context: vscode.ExtensionContext) {
             await vscode.commands.executeCommand('default:type', args);
         }
     });
+
+    // Add configuration changed callback to update our configuration.
+    // This way we can cache our configuration.
+    vscode.workspace.onDidChangeConfiguration(
+        function (event: vscode.ConfigurationChangeEvent) {
+            updateConfig();
+        });
+}
+
+function updateConfig() {
+    ourConfig = vscode.workspace.getConfiguration('indent-to-bracket', null);
+    useDefaultNewlineIndent = ourConfig.get('useDefaultIndentationAfterEmptyBracket', useDefaultNewlineIndent);
 }
 
 // Method borrowed from vim vscode extension
@@ -127,8 +142,8 @@ function findIndentationPositionInLineAndTallyOpenBrackets(line: string, tallies
             if (indices[i] == line.length - 1)
             {
                 // It was the last character on the line, thus we want to
-                // indent to two characters after after the next open bracket
-                offset += 2;
+                // indent to tabSize characters after after the next open bracket
+                offset += tabSize;
                 continue;
             }
             return columnOfCharacterInLine(line, index, tabSize)+offset;
@@ -147,9 +162,7 @@ function findIndentationPositionOfPreviousOpenBracket(editor: vscode.TextEditor,
     var startingLine = document.lineAt(startingLineNumber).text.substring(0, position.character);
     var tabSize = editor.options.tabSize as number;
 
-    var config = vscode.workspace.getConfiguration(
-        'indent-to-bracket');
-    if (config.get('useDefaultIndentationAfterEmptyBracket'))
+    if (useDefaultNewlineIndent)
     {
       if (doesLineEndWithOpenBracket(startingLine)) {
         // We want to use the editor's default indentation in this case

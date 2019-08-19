@@ -2,7 +2,7 @@
     "name": "indent-to-bracket",
     "displayName": "Indent To Bracket",
     "description": "Indents new lines to the last open bracket / parenthesis",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "publisher": "LAK132",
     "engines": {
         "vscode": "^1.20.0"
@@ -18,10 +18,10 @@
         "configuration": {
             "title": "Indent to bracket",
             "properties": {
-                "indent-to-bracket.useDefaultIndentationAfterEmptyBracket":{
-                    "type":"boolean",
-                    "scope":"resource",
-                    "default": false,
+                "indent-to-bracket.useDefaultIndentationAfterEmptyBracket": {
+                    "type": "boolean",
+                    "scope": "resource",
+                    "default": true,
                     "description": "If false, then any new lines directly after an empty bracket will be indented one level beyond the previous open bracket.\nIf true, the default vscode behaviour will be used."
                 }
             }
@@ -35,10 +35,10 @@
         "test": "npm run compile && node ./node_modules/vscode/bin/test"
     },
     "devDependencies": {
-        "typescript": "^2.6.1",
-        "vscode": "^1.1.6",
-        "@types/node": "^7.0.43",
-        "@types/mocha": "^2.2.42"
+        "@types/mocha": "^2.2.42",
+        "@types/node": "^7.10.7",
+        "typescript": "^2.9.2",
+        "vscode": "^1.1.36"
     },
     "keywords": [
         "indent",

@@ -24,7 +24,7 @@ Basically, when you type enter to create a new line, it automatically indents yo
                             'only has 52 columns ' \
                             'for some reason')
 
-If any line ends with an open bracket of some sort, though, it still falls back on the default behavior for your current language. So it won't interfere with things like if statements or declaring functions with curly braces, and doing something like this still works:
+By default if any line ends with an open bracket of some sort, it will fall back on the default behavior for your current language. So it won't interfere with things like if statements or declaring functions with curly braces, and doing something like this still works:
 
     variable = someOtherFunction(
         argument1,
@@ -32,13 +32,24 @@ If any line ends with an open bracket of some sort, though, it still falls back 
         argument3
     );
 
+Settings `indent-to-bracket.useDefaultIndentationAfterEmptyBracket` to `false` however will make any new lines directly after an empty bracket will be indented one level beyond the previous open bracket:
+
+    testing(testing123(
+                "helloooo"));
 
 ## Extension Settings
 
-This extension currently has no settings, and will affect all languages and document types. If this is an issue for you, feel free to request me adding some sort of setting like a whitelist or blacklist for particular file extensions.
+`indent-to-bracket.useDefaultIndentationAfterEmptyBracket`:
+If false, then any new lines directly after an empty bracket will be indented one level beyond the previous open bracket.
+If true, the default vscode behaviour will be used.
+Defaults to true.
 
 
 ## Release Notes
+
+### 1.0.2
+
+- Add option for Emacs style indentation after an empty bracket
 
 ### 1.0.1
 
