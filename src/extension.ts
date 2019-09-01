@@ -5,12 +5,11 @@ export function activate(context: vscode.ExtensionContext) {
     // Use the console to output diagnostic information (console.log) and errors (console.error)
     // This line of code will only be executed once when your extension is activated
     console.log('Activated: indent-to-bracket');
-    
+
     overrideCommand(context, "type", async args => {
-        if (args.text === "\n" || args.text == "\r\n") {
-            maybeInsertNewLineAndIndent().catch(async () => {
-                await vscode.commands.executeCommand('default:type', args);
-            })
+        let editor = vscode.window.activeTextEditor;
+        if (editor !== undefined && (args.text === "\n" || args.text == "\r\n")) {
+            await insertNewLinesAndIndent(editor)
         } else {
             await vscode.commands.executeCommand('default:type', args);
         }
@@ -35,7 +34,7 @@ function overrideCommand(context: vscode.ExtensionContext, command: string, call
 
         callback(args);
     });
-    
+
     context.subscriptions.push(disposable);
 }
 
@@ -48,30 +47,30 @@ class BracketCounter {
                 '{': 'curly', '}': 'curly', '<': 'angle', '>': 'angle'};
     }
     tallies: IObjectWithNumericValues = {paren: 0, square: 0, curly: 0, angle: 0};
-    
+
     private static keyForBracket(bracket: string) {
         return this.kBracketKeys[bracket];
     }
-    
+
     public addToTallyForBracket(bracket: string, amount: number) {
         this.tallies[BracketCounter.keyForBracket(bracket)] += amount;
     }
-    
+
     public bracketTallyForBracket(bracket: string) {
         return this.tallies[BracketCounter.keyForBracket(bracket)];
     }
-    
+
     public areAllBracketsClosed() {
         for(var key in this.tallies) {
             if (this.tallies.hasOwnProperty(key) && this.tallies[key] !== 0) {
                 return false;
             }
         }
-        
+
         return true;
     }
 }
-    
+
 function isClosingBracket(bracket: string) {
     return bracket === ')' || bracket === ']' || bracket === '}' || bracket == '>';
 }
@@ -85,17 +84,17 @@ function allBracketsInString(s: string) {
     var regex = /(\(|\)|\[|\]|{|})/g;
     var indices = new Array();
     var match = null;
-    
+
     while(match = regex.exec(s)) {
         indices.push(match.index);
     }
-    
+
     return indices;
 }
 
 function columnOfCharacterInLine(line: string, character: number, tabSize: number) {
     var result = 0;
-    
+
     for(var i = 0; i < character; ++i) {
         if (line[i] == '\t') {
             result += tabSize;
@@ -103,22 +102,34 @@ function columnOfCharacterInLine(line: string, character: number, tabSize: numbe
             result += 1;
         }
     }
-    
+
     return result;
+}
+
+function indentationIndex(line: string) {
+    var indentation_index = 0;
+    for (var i = 0; i < line.length; ++i) {
+        if (line[i] == ' ' || line[i] == '\t') {
+            ++indentation_index;
+        } else {
+            break;
+        }
+    }
+    return indentation_index;
 }
 
 // Returns null if the given line doesn't indicate the point we want to indent to
 function findIndentationPositionInLineAndTallyOpenBrackets(line: string, tallies: BracketCounter, tabSize: number) : number | null {
     var indices = allBracketsInString(line);
-    
+
     if (indices.length === 0) {
         return null;
     }
-    
+
     for(var i = indices.length-1; i >= 0; --i) {
         var index = indices[i];
         var char: string = line[index];
-        
+
         if (isClosingBracket(char)) {
             tallies.addToTallyForBracket(char, 1);
         } else if (tallies.bracketTallyForBracket(char) == 0) {
@@ -128,32 +139,32 @@ function findIndentationPositionInLineAndTallyOpenBrackets(line: string, tallies
             tallies.addToTallyForBracket(char, -1);
         }
     }
-    
+
     return null;
 }
- 
+
 function findIndentationPositionOfPreviousOpenBracket(editor: vscode.TextEditor, position: vscode.Position) : number | null {
     var document = editor.document;
     var startingLineNumber = position.line;
     // Don't want to consider the entire line if the insertion point isn't at the end:
     var startingLine = document.lineAt(startingLineNumber).text.substring(0, position.character);
     var tabSize = editor.options.tabSize as number;
-    
+
     if (doesLineEndWithOpenBracket(startingLine)) {
         // We want to use the editor's default indentation in this case
         return null;
     }
-    
+
     var tallies = new BracketCounter();
-    
+
     for(var currentLineNumber = startingLineNumber; currentLineNumber >= 0; --currentLineNumber) {
         var currentLine = (currentLineNumber === startingLineNumber) ? startingLine : document.lineAt(currentLineNumber).text;
         var indentationIndex = findIndentationPositionInLineAndTallyOpenBrackets(currentLine, tallies, tabSize);
-        
+
         if (indentationIndex !== null) {
             return indentationIndex;
         }
-        
+
         if (tallies.areAllBracketsClosed()) {
             if (currentLineNumber !== startingLineNumber) {
                 return columnOfCharacterInLine(currentLine, document.lineAt(currentLineNumber).firstNonWhitespaceCharacterIndex,
@@ -163,8 +174,25 @@ function findIndentationPositionOfPreviousOpenBracket(editor: vscode.TextEditor,
             }
         }
     }
-    
+
     return null;
+}
+
+function findDefaultIndentationPosition(editor: vscode.TextEditor, position: vscode.Position) : number {
+    // Imitate vscode's default indentation behaviour.
+    // Warning: does not put closing brackets on extra new line.
+    var document = editor.document;
+    var startingLineNumber = position.line;
+    // Don't want to consider the entire line if the insertion point isn't at the end:
+    var startingLine = document.lineAt(startingLineNumber).text.substring(0, position.character);
+    var indentation_index = indentationIndex(startingLine);
+    var tabSize = editor.options.tabSize as number;
+    var line_indentation = columnOfCharacterInLine(startingLine, indentation_index, tabSize);
+    if (doesLineEndWithOpenBracket(startingLine)) {
+        // We want to use the editor's default indentation in this case
+        line_indentation += tabSize;
+    }
+    return line_indentation;
 }
 
 function indentationWhitespaceToColumn(column: number, tabSize: number, insertSpaces: boolean) {
@@ -190,62 +218,89 @@ function editorEdit(editor: vscode.TextEditor, callback: (editBuilder: vscode.Te
     });
 }
 
-function performInsertEditWithWorkingRedo(editor: vscode.TextEditor, selection: vscode.Selection, text: string) {
-    // When VS Code executes an edit using TextEditor.edit, the undo stop it creates places the insertion
-    // point not at the position it moved to after the edit, but the position it was at before the edit.
-    // This means that if the user does an undo followed by a redo after our call to TextEditor.edit, the
-    // insertion point will be in the wrong place -- before the newline the user just typed! We work around
-    // this by executing two calls to TextEditor.edit. The first inserts the text we want and creates only one
-    // undo stop before the edit -- but not after. Then we execute a second edit that inserts an empty string
-    // after the text we inserted with the first edit, with no undo stop created before the edit but one
-    // created after. Consequently, only one undoable action is effectively created, but when the user
-    // performs an undo followed by a redo, the text cursor is placed after the text we inserted.
+function performInsertEditWithWorkingRedo(editor: vscode.TextEditor, selections: vscode.Selection[], texts: string[]) {
     return new Promise<boolean>(async (resolve, reject) => {
         editorEdit(editor, (edit: vscode.TextEditorEdit) => {
-            if (!selection.isEmpty) {
-                edit.delete(selection);
+            for(let i = 0; i < selections.length; ++i) {
+                let selection = selections[i];
+                if (!selection.isEmpty) {
+                    edit.delete(selection);
+                }
+                edit.insert(selection.start, texts[i]);
             }
-        }, { undoStopBefore: true, undoStopAfter: false }).then(() => {
-            return editorEdit(editor, (edit: vscode.TextEditorEdit) => {
-                edit.insert(selection.active, text);
-            }, { undoStopBefore: false, undoStopAfter: false })
-        }).catch(() => {
+        }, { undoStopBefore: false, undoStopAfter: false }).catch(() => {
             // If the first edit goes wrong, we want to reject the promise so that we'll fall back on the
             // VS Code's default behavhior.
             console.log('indent-to-bracket error: edit failed!');
             reject();
         }).then(() => {
-            return editorEdit(editor, (edit: vscode.TextEditorEdit) => {
-                edit.insert(editor!.selection.active, '');
-            }, { undoStopBefore: false, undoStopAfter: true })
-        }).then(() => {
-            resolve();
-        }).catch(() => {
-            // If the second edit goes wrong, we've already inserted text so we definitely *don't* want
-            // VS Code's default behavior any longer -- we'd get two newlines. All we can do is toss
-            // out a warning message and hope the user doesn't get confused by the funky undo behavior.
-            console.log('indent-to-bracket error: second edit during newline failed, undo/redo may not work correctly!');
             resolve();
         });
     });
 }
 
-async function maybeInsertNewLineAndIndent() {
-    let editor = vscode.window.activeTextEditor;
-    
-    if (editor === undefined) {
-        return Promise.reject(null);
+async function insertNewLinesAndIndent(editor: vscode.TextEditor) {
+    let selection_indices_covered = new Set();
+    // TODO: one way to still break this is by having multiple cursors on
+    // different bracket levels in same line. But this should be a very minor use case.
+
+    // Write undo history.
+    await editorEdit(
+        editor, (edit: vscode.TextEditorEdit) => {
+            edit.insert(editor.selection.active, '');
+        },
+        {undoStopBefore: false, undoStopAfter: true});
+
+    // Iterate in while-loop as delete edits can delete brackets and thus
+    // change the type of indentation.
+    while(selection_indices_covered.size < editor.selections.length) {
+        let whitespace_strings = [];
+        let selections_to_edit = [];
+        for(let i = 0; i < editor.selections.length; ++i) {
+            if (!selection_indices_covered.has(i)) {
+                let indentation_position = findIndentationPositionOfPreviousOpenBracket(editor, editor.selections[i].start);
+                if (indentation_position === null) {
+                    var defaultIndentationPosition = findDefaultIndentationPosition(editor, editor.selections[i].start);
+                    var whitespace = indentationWhitespaceToColumn(defaultIndentationPosition, editor.options.tabSize as number,
+                                                                editor.options.insertSpaces as boolean);
+                    whitespace_strings.push('\n' + whitespace);
+                    selections_to_edit.push(editor.selections[i]);
+                    selection_indices_covered.add(i);
+                }
+            }
+        }
+        // First perform all edits that are according to default indentation rules.
+        await performInsertEditWithWorkingRedo(editor, selections_to_edit,
+                                               whitespace_strings);
+
+        // If-clause is optimization to avoid second await.
+        if(selection_indices_covered.size < editor.selections.length) {
+            whitespace_strings = [];
+            selections_to_edit = [];
+            for(let i = 0; i < editor.selections.length; ++i) {
+                if (!selection_indices_covered.has(i)) {
+                    let indentation_position = findIndentationPositionOfPreviousOpenBracket(editor, editor.selections[i].start);
+                    if (indentation_position !== null) {
+                        var whitespace = indentationWhitespaceToColumn(indentation_position, editor.options.tabSize as number,
+                                                                    editor.options.insertSpaces as boolean);
+                        whitespace_strings.push('\n' + whitespace);
+                        selections_to_edit.push(editor.selections[i]);
+                        selection_indices_covered.add(i);
+                    }
+                }
+            }
+            // Secondly perform all edits that are according to bracket indentation rules.
+            await performInsertEditWithWorkingRedo(editor, selections_to_edit,
+                                                   whitespace_strings);
+        }
     }
-    
-    let indentationPosition = findIndentationPositionOfPreviousOpenBracket(editor!, editor!.selection.active);
-    
-    if (indentationPosition === null) {
-        return Promise.reject(null);
-    }
-    
-    var whitespace = indentationWhitespaceToColumn(indentationPosition, editor.options.tabSize as number,
-                                                   editor.options.insertSpaces as boolean);
-    await performInsertEditWithWorkingRedo(editor!, editor!.selection, '\n' + whitespace);
+
+    // Write undo history.
+    await editorEdit(
+        editor, (edit: vscode.TextEditorEdit) => {
+            edit.insert(editor.selection.active, '');
+        },
+        {undoStopBefore: true, undoStopAfter: false});
 }
 
 // this method is called when your extension is deactivated
