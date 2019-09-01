@@ -1,5 +1,7 @@
 # VS Code extension for indenting to open brackets
 
+#### Fork of https://github.com/briankendall/vscode-indent-to-bracket with added support for multiple cursors/selections.
+
 This is a minimal extension for VS Code that implements automatic indentation to the last open bracket / parenthesis. This is essentially the same feature as the `indent_to_bracket` setting in Sublime Text, except that it works with most brackets, including square, and curly brackets. (Currently angle brackets are not supported.)
 
 Basically, when you type enter to create a new line, it automatically indents your code like this:
