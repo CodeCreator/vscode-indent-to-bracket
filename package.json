@@ -2,7 +2,7 @@
     "name": "indent-to-bracket",
     "displayName": "Indent To Bracket",
     "description": "Indents new lines to the last open bracket / parenthesis",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "publisher": "CodeCreator",
     "engines": {
         "vscode": "^1.20.0"
