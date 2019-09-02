@@ -174,7 +174,9 @@ function findDefaultIndentationPosition(editor: vscode.TextEditor, position: vsc
     var startingLineNumber = position.line;
     // Don't want to consider the entire line if the insertion point isn't at the end:
     var startingLine = document.lineAt(startingLineNumber).text.substring(0, position.character);
-    var indentation_index = document.lineAt(startingLineNumber).firstNonWhitespaceCharacterIndex;
+    var indentation_index = Math.min(
+        position.character,
+        document.lineAt(startingLineNumber).firstNonWhitespaceCharacterIndex);
     var tabSize = editor.options.tabSize as number;
     var line_indentation = columnOfCharacterInLine(startingLine, indentation_index, tabSize);
     if (doesLineEndWithOpenBracket(startingLine)) {
