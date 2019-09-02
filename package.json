@@ -36,8 +36,11 @@
     ],
     "repository": {
         "type": "git",
-        "url": "https://github.com/briankendall/vscode-indent-to-bracket.git"
+        "url": "https://github.com/CodeCreator/vscode-indent-to-bracket.git"
     },
-    "homepage": "https://github.com/briankendall/vscode-indent-to-bracket",
-    "license": "Unlicense"
+    "homepage": "https://github.com/CodeCreator/vscode-indent-to-bracket",
+    "license": "Unlicense",
+    "dependencies": {
+        "vsce": "^1.66.0"
+    }
 }
