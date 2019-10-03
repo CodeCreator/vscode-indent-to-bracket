@@ -40,6 +40,12 @@ This extension currently has no settings, and will affect all languages and docu
 
 ## Release Notes
 
+### 1.2.1
+- Fix indentation behaviour when pressing newline inside bracket pair to resemble default vs code behaviour.
+
+### 1.1.0
+- Support multiple cursors.
+
 ### 1.0.1
 
 - No longer considering angle brackets -- did not work with boolean logic or bitwise operators
