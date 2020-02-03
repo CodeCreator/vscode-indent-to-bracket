@@ -1,6 +1,9 @@
 'use strict';
 import * as vscode from 'vscode';
 
+var ourConfig: vscode.WorkspaceConfiguration;
+var useDefaultNewlineIndent: boolean;
+
 export function activate(context: vscode.ExtensionContext) {
     // Use the console to output diagnostic information (console.log) and errors (console.error)
     // This line of code will only be executed once when your extension is activated
@@ -14,6 +17,21 @@ export function activate(context: vscode.ExtensionContext) {
             await vscode.commands.executeCommand('default:type', args);
         }
     });
+
+    // Add configuration changed callback to update our configuration.
+    // This way we can cache our configuration.
+    vscode.workspace.onDidChangeConfiguration(
+        function (event: vscode.ConfigurationChangeEvent) {
+            updateConfig();
+        });
+
+    useDefaultNewlineIndent = true;
+    updateConfig();
+}
+
+function updateConfig() {
+    ourConfig = vscode.workspace.getConfiguration('indent-to-bracket', null);
+    useDefaultNewlineIndent = ourConfig.get('useDefaultIndentationAfterEmptyBracket', useDefaultNewlineIndent);
 }
 
 // Method borrowed from vim vscode extension
@@ -111,26 +129,36 @@ function columnOfCharacterInLine(line: string, character: number, tabSize: numbe
 
 // Returns null if the given line doesn't indicate the point we want to indent to
 function findIndentationPositionInLineAndTallyOpenBrackets(line: string, tallies: BracketCounter, tabSize: number) : number | null {
-    var indices = allBracketsInString(line);
+    var bracketPositions = allBracketsInString(line);
 
-    if (indices.length === 0) {
+    // No brackets in this line
+    if (bracketPositions.length === 0) {
         return null;
     }
 
-    for (var i = indices.length-1; i >= 0; --i) {
-        var index = indices[i];
-        var char: string = line[index];
+    var offset = 1;
+    for (var i = bracketPositions.length - 1; i >= 0; --i) {
+        var position = bracketPositions[i];
+        var char: string = line[position];
 
         if (isClosingBracket(char)) {
             tallies.addToTallyForBracket(char, 1);
         } else if (tallies.bracketTallyForBracket(char) == 0) {
             // An open bracket that has no matching closing bracket -- we want to indent to the column after it!
-            return columnOfCharacterInLine(line, index, tabSize)+1;
+            if (!useDefaultNewlineIndent && position == line.length - 1)
+            {
+                // It was the last character on the line, thus we want to
+                // indent to tabSize characters after the next open bracket
+                offset += tabSize;
+                continue;
+            }
+            return columnOfCharacterInLine(line, position, tabSize) + offset;
         } else {
             tallies.addToTallyForBracket(char, -1);
         }
     }
 
+    // All brackets on this line were closed before the cursor.
     return null;
 }
 
@@ -141,7 +169,8 @@ function findIndentationPositionOfPreviousOpenBracket(editor: vscode.TextEditor,
     var line = document.lineAt(line_number).text.substring(0, position.character);
     var tabSize = editor.options.tabSize as number;
 
-    if (isOpeningBracket(line[line.length - 1])) {
+    // Check if the character just before the cursor is an open bracket
+    if (useDefaultNewlineIndent && isOpeningBracket(line[line.length - 1])) {
         // We want to use the editor's default indentation in this case
         return null;
     }
@@ -150,12 +179,17 @@ function findIndentationPositionOfPreviousOpenBracket(editor: vscode.TextEditor,
 
     for (var currentLineNumber = line_number; currentLineNumber >= 0; --currentLineNumber) {
         var currentLine = (currentLineNumber === line_number) ? line : document.lineAt(currentLineNumber).text;
+
+        // Not using default newline indent or character before cursor was not
+        // an open bracket. Calculate how far we should indent on the new line.
         var indentationIndex = findIndentationPositionInLineAndTallyOpenBrackets(currentLine, tallies, tabSize);
 
         if (indentationIndex !== null) {
             return indentationIndex;
         }
 
+        // There were either not brackets on the line, or they were all closed
+        // before the cursor.
         if (tallies.areAllBracketsClosed()) {
             if (currentLineNumber !== line_number) {
                 return columnOfCharacterInLine(
@@ -215,7 +249,6 @@ function editorEdit(editor: vscode.TextEditor, callback: (editBuilder: vscode.Te
         editor.edit(callback, options).then((success: boolean) => {
             if (success) {
                 resolve(true);
-
             } else {
                 console.log('vscode-indent-to-bracket: Edit failed.')
                 reject();
@@ -248,12 +281,18 @@ async function insertNewLinesAndIndent(editor: vscode.TextEditor) {
         let closing_bracket_indentation_position = -1;
         let indentation_position = findIndentationPositionOfPreviousOpenBracket(editor, selection.start);
         if (indentation_position === null) {
+            // Cursor is directly after the opening bracket or all brackets are
+            // closed before cursor.
+
+            // returns -1 if there isn't an opening bracket directly before and
+            // closing bracket directly after the cursor.
             closing_bracket_indentation_position = findClosingBracketIndentationPosition(editor, selection);
             indentation_position = findDefaultIndentationPosition(editor, selection.start, true);
         }
 
         let whitespace = indentationWhitespaceToColumn(
-            indentation_position, editor.options.tabSize as number,
+            indentation_position,
+            editor.options.tabSize as number,
             editor.options.insertSpaces as boolean);
 
         await editorEdit(editor, (edit: vscode.TextEditorEdit) => {
@@ -261,20 +300,27 @@ async function insertNewLinesAndIndent(editor: vscode.TextEditor) {
                 edit.delete(selection);
             }
             edit.insert(selection.start, '\n' + whitespace);
-        }, { undoStopBefore: false, undoStopAfter: false});
+        }, { undoStopBefore: false, undoStopAfter: false });
 
         if (closing_bracket_indentation_position >= 0) {
+            // The closing bracket is the character directly after the cursor,
+            // move it down
             whitespace = indentationWhitespaceToColumn(
                 closing_bracket_indentation_position,
                 editor.options.tabSize as number,
                 editor.options.insertSpaces as boolean);
 
-            let stored_selections = editor.selections;
+            // Get the current position of the cursor so we can restore it.
             selection = editor.selections[sorted_indices[i]];
             await editorEdit(editor, (edit: vscode.TextEditorEdit) => {
                 edit.insert(selection.start, '\n' + whitespace);
-            }, { undoStopBefore: false, undoStopAfter: false});
-            editor.selections = stored_selections;
+            }, { undoStopBefore: false, undoStopAfter: false });
+            // Move the cursor back to where it was before we indented the
+            // brackets.
+            editor.selections[sorted_indices[i]] = selection;
+            // We must trigger selectsions setter, otherwise it doesn't
+            // actually update the cursor positions.
+            editor.selections = editor.selections;
         }
     }
 

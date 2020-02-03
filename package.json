@@ -2,8 +2,8 @@
     "name": "indent-to-bracket",
     "displayName": "Indent To Bracket",
     "description": "Indents new lines to the last open bracket / parenthesis",
-    "version": "1.2.1",
-    "publisher": "CodeCreator",
+    "version": "1.2.2",
+    "publisher": "LAK132",
     "engines": {
         "vscode": "^1.20.0"
     },
@@ -14,7 +14,19 @@
         "*"
     ],
     "main": "./out/extension",
-    "contributes": {},
+    "contributes": {
+        "configuration": {
+            "title": "Indent to bracket",
+            "properties": {
+                "indent-to-bracket.useDefaultIndentationAfterEmptyBracket": {
+                    "type": "boolean",
+                    "scope": "resource",
+                    "default": true,
+                    "description": "If false, then any new lines directly after an empty bracket will be indented one level beyond the previous open bracket.\nIf true, the default vscode behaviour will be used."
+                }
+            }
+        }
+    },
     "scripts": {
         "vscode:prepublish": "npm run compile",
         "compile": "tsc -p ./",
@@ -23,10 +35,10 @@
         "test": "npm run compile && node ./node_modules/vscode/bin/test"
     },
     "devDependencies": {
-        "typescript": "^2.6.1",
-        "vscode": "^1.1.6",
-        "@types/node": "^7.0.43",
-        "@types/mocha": "^2.2.42"
+        "@types/mocha": "^2.2.42",
+        "@types/node": "^7.10.7",
+        "typescript": "^2.9.2",
+        "vscode": "^1.1.36"
     },
     "keywords": [
         "indent",
@@ -36,11 +48,8 @@
     ],
     "repository": {
         "type": "git",
-        "url": "https://github.com/CodeCreator/vscode-indent-to-bracket.git"
+        "url": "https://github.com/LAK132/vscode-indent-to-bracket.git"
     },
-    "homepage": "https://github.com/CodeCreator/vscode-indent-to-bracket",
-    "license": "Unlicense",
-    "dependencies": {
-        "vsce": "^1.66.0"
-    }
+    "homepage": "https://github.com/LAK132/vscode-indent-to-bracket",
+    "license": "Unlicense"
 }
